@@ -2,8 +2,10 @@ const pool = require("../database/connection");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { secret } = require("../config");
+const { writeLog } = require("../logger");
 class authActions {
   async login(req, res) {
+    writeLog("Login attempt from: " + req.socket.remoteAddress);
     const { email, password, remember } = req.body;
     const query = `SELECT * FROM users WHERE email = ?`;
     try {
@@ -22,6 +24,7 @@ class authActions {
               user_id: user.id,
               message: "Konto nie zostało zweryfikowane!",
             });
+            writeLog("Login attempt failed: account not verified");
             return;
           }
           console.log("Successful login from: ", req.socket.remoteAddress);
@@ -31,24 +34,27 @@ class authActions {
           res.status(202).send({
             token: token,
           });
+          writeLog("Login attempt successful");
         } else {
           res.status(401).send({ message: "Hasło jest nieprawidłowe!" });
-          console.log(
-            "Failed login from: ",
-            req.socket.remoteAddress + ", password is incorrect"
+          writeLog(
+            "Failed login from: " +
+              req.socket.remoteAddress +
+              " password incorrect"
           );
         }
       } else {
         res
           .status(401)
           .send({ message: "Użytkownik o takim adresie email nie istnieje!" });
-        console.log(
-          "Failed login from: ",
-          req.socket.remoteAddress + ", user with this email doesnt exists"
+        writeLog(
+          "Failed login from: " + req.socket.remoteAddress + " user not found"
         );
       }
     } catch (error) {
-      console.log(error);
+      writeLog(
+        "Failed login from: " + req.socket.remoteAddress + " server error"
+      );
       res.status(500).send("Server Error");
     }
   }
