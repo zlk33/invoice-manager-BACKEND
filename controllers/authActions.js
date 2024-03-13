@@ -1,7 +1,7 @@
-const pool = require("../../database/connection");
+const pool = require("../database/connection");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const secret = "RCA7*D4gSE7!#@U/PUU6Etxd1&(ph3M?";
+const { secret } = require("../config");
 class authActions {
   async login(req, res) {
     const { email, password, remember } = req.body;
@@ -16,6 +16,14 @@ class authActions {
             email: user.email,
             id: user.id,
           };
+          if (!user.verified) {
+            res.status(401).send({
+              error: "notverified",
+              user_id: user.id,
+              message: "Konto nie zostało zweryfikowane!",
+            });
+            return;
+          }
           console.log("Successful login from: ", req.socket.remoteAddress);
           const token = jwt.sign(jwt_user, secret, {
             expiresIn: remember ? "7d" : "8h",
@@ -46,19 +54,32 @@ class authActions {
   }
 
   async register(req, res) {
-    const { email, password } = req.body;
+    const { email, password, firstname, lastname } = req.body;
     const query = `SELECT * FROM users WHERE email = ?`;
     try {
       const result = await pool.query(query, [email]);
       if (result[0].length > 0) {
-        res.status(400).send({ message: "User with this email exists" });
+        res.status(401).send({
+          message: "Użytkownik o takim adresie email już istnieje!",
+        });
       } else {
-        const query = `INSERT INTO users (email, password) VALUES (?, ?)`;
-        await pool.query(query, [email, password]);
-        res.status(201).send({ message: "User created" });
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const verificationCode =
+          Math.floor(Math.random() * (999999 - 100000 + 1)) + 100000;
+        const insertQuery = `INSERT INTO users (email, password, first_name, last_name, verification_code) VALUES (?, ?, ?, ?, ?)`;
+        await pool.query(insertQuery, [
+          email,
+          hashedPassword,
+          firstname,
+          lastname,
+          verificationCode,
+        ]);
+        res.status(201).send({ message: "Konto zostało utworzone!" });
+        //Wysłanie maila z kodem weryfikacyjnym
       }
     } catch (error) {
-      res.status(500).send({ message: "Server Error" });
+      console.log(error);
+      res.status(500).send("Server Error");
     }
   }
 }

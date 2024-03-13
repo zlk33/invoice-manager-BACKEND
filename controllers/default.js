@@ -1,4 +1,4 @@
-const { api_name, api_version, documentation_url } = require("../../config");
+const { api_name, api_version, documentation_url } = require("../config");
 const html = `
 <!DOCTYPE html>
 <html>
